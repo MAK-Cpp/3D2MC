@@ -7,9 +7,11 @@ find_package(OpenGL REQUIRED)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# add_subdirectory(lib)
-add_subdirectory(src)
+set(CMAKE_CXX_CLANG_TIDY clang-tidy)
+# set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-checks=*")
 
+add_subdirectory(lib)
+add_subdirectory(src)
 
 
 set(COMPILE_OPT -Werror -Wall -Wextra)
