@@ -38,5 +38,6 @@
 **/cmake_install.cmake
 .idea/
 .vs/
+.vscode/
 cmake-build-debug/
 out/

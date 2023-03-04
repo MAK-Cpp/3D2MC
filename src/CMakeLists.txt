@@ -1,8 +1,18 @@
 add_executable(${PROJECT_NAME} programm.cpp)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC ${GRAPHIC_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PUBLIC shader 
+                                            controls 
+                                            objloader 
+                                            quaternion_utils 
+                                            tangentspace 
+                                            text2D 
+                                            texture 
+                                            vboindexer
+                    )
+
 target_include_directories(${PROJECT_NAME} PUBLIC
                           ${PROJECT_BINARY_DIR}/lib
+                          ${PROJECT_BINARY_DIR}/shaders
                           )
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")

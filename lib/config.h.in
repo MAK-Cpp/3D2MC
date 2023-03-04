@@ -1,0 +1,7 @@
+    #ifndef CONFIG_H_IN
+    #define CONFIG_H_IN
+    #include <filesystem>
+     
+    #define PROJECT_DIR std::filesystem::path("@PROJECT_DIR@")
+     
+    #endif // CONFIG_H_IN
