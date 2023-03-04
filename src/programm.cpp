@@ -24,6 +24,21 @@ glm::vec3 vectorMultiplication(const glm::vec3& a, const glm::vec3& b) {
                      a[0] * b[1] - a[1] * b[0]);
 }
 
+glm::vec3 vec4to3 (const glm::vec4& to_3) {
+    return glm::vec3(to_3[0], to_3[1], to_3[2]);
+}
+
+glm::vec4 vec3to4 (const glm::vec3& to_4, const float end = 0) {
+    return glm::vec4(to_4[0], to_4[1], to_4[2], end);
+}
+
+glm::vec3 rotateVec3(const glm::vec3& vec_to_rotate, glm::f32 angle, const glm::highp_vec3 &axis, const float end = 0) {
+    glm::vec4 result = glm::rotate(angle, axis) * vec3to4(vec_to_rotate, end);
+    return vec4to3(result);
+}
+
+
+
 int main(void) {
     constexpr int kWidth = 800;
     constexpr int kHeight = 600;
@@ -156,7 +171,8 @@ int main(void) {
         LoadShaders(PROJECT_DIR / "shaders/TransformVertexShader.vertexshader",
                     PROJECT_DIR / "shaders/ColorFragmentShader.fragmentshader");
 
-    glm::vec4 camera_position(4, 3, 3, 0);
+    glm::vec4 camera_position(4, 3, 3, 1);
+    glm::vec3 camera_center(0, 0, 0);
     glm::vec4 head(0, 1, 0, 0);
     glm::vec3 Axis(std::rand(), std::rand(), std::rand());
 
@@ -165,41 +181,56 @@ int main(void) {
     glfwGetCursorPos(window, &mouse_position_x_end, &mouse_position_y_end);
 
     do {
+        glm::vec3 front = vec4to3(camera_position) - camera_center;
+        glm::vec3 side = vectorMultiplication(front, head);
         mouse_position_x_begin = mouse_position_x_end;
         mouse_position_y_begin = mouse_position_y_end;
         glfwGetCursorPos(window, &mouse_position_x_end, &mouse_position_y_end);
         if ((mouse_position_x_begin != mouse_position_x_end ||
              mouse_position_y_begin != mouse_position_y_end) &&
             glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-            Axis = vectorMultiplication(
-                glm::vec3(camera_position[0], camera_position[1],
-                          camera_position[2]),
-                glm::vec3(head[0], head[1], head[2]));
+            Axis = vectorMultiplication(vec4to3(camera_position), vec4to3(head));
 
             glm::vec2 mouse_vector = glm::normalize(
                 glm::vec2(mouse_position_x_end - mouse_position_x_begin,
                           mouse_position_y_end - mouse_position_y_begin));
 
-            glm::vec4 new_Axis =
-                glm::rotate(kIdentityMatrix,
-                            std::acos(mouse_vector[1]) *
-                                (mouse_vector[0] >= 0 ? 1 : -1),
-                            glm::vec3(camera_position[0], camera_position[1],
-                                      camera_position[2])) *
-                glm::vec4(Axis[0], Axis[1], Axis[2], 0);
-
-            Axis = glm::vec3(new_Axis[0], new_Axis[1], new_Axis[2]);
-            camera_position =
-                glm::rotate(kIdentityMatrix, kRotationRadians, Axis) *
-                camera_position;
+            Axis = rotateVec3(Axis, std::acos(mouse_vector[1]) * (mouse_vector[0] >= 0 ? 1 : -1), vec4to3(camera_position));
+            camera_position = glm::rotate(kIdentityMatrix, kRotationRadians, Axis) * camera_position;
             head = glm::rotate(kIdentityMatrix, kRotationRadians, Axis) * head;
+
+            camera_center = rotateVec3(camera_center, kRotationRadians, Axis);
+
+        }
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+            camera_position -= vec3to4(glm::normalize(side)) / 10.0f;
+            camera_center -= glm::normalize(side) / 10.0f;
+        }
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+            camera_position += vec3to4(glm::normalize(side)) / 10.0f;
+            camera_center += glm::normalize(side) / 10.0f;
+        }
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+            camera_position -= vec3to4(glm::normalize(front)) / 10.0f;
+            camera_center -= glm::normalize(front) / 10.0f;
+        }
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+            camera_position += vec3to4(glm::normalize(front)) / 10.0f;
+            camera_center += glm::normalize(front) / 10.0f;
+        }
+        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+            camera_position += glm::normalize(head) / 10.0f;
+            camera_center += vec4to3(glm::normalize(head)) / 10.0f;
+        }
+        if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) {
+            camera_position -= glm::normalize(head) / 10.0f;
+            camera_center -= vec4to3(glm::normalize(head)) / 10.0f;
         }
         glm::mat4 view = glm::lookAt(
-            glm::vec3(camera_position[0], camera_position[1],
-                      camera_position[2]),  // Камера находится в мировых
+            vec4to3(camera_position),  // Камера находится в мировых
                                             // координатах (4,3,3)
-            glm::vec3(0, 0, 0),  // И направлена в начало координат
-            glm::vec3(head[0], head[1], head[2])  // "Голова" находится сверху
+            camera_center,  // И направлена в начало координат
+            vec4to3(head)  // "Голова" находится сверху
         );
 
         glm::mat4 MVP = projection_matrix * view * model;
