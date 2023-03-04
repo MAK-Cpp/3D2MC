@@ -1,6 +1,7 @@
 // Include standard headers
-#include <iostream>
 #include <cmath>
+#include <iostream>
+#include <random>
 
 // Include GLEW
 #include <GL/glew.h>
@@ -18,14 +19,28 @@
 // Need to get variables from CMake
 #include "config.h"
 
+glm::vec3 vectorMultiplication(const glm::vec3& a, const glm::vec3& b) {
+    return glm::vec3(a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2],
+                     a[0] * b[1] - a[1] * b[0]);
+}
+
 int main(void) {
-    constexpr int kWidth = 800;
-    constexpr int kHeight = 600;
+    constexpr int kWidth = 1920;
+    constexpr int kHeight = 1080;
     constexpr float kCamDegrees = 45;
-    constexpr float kRotationRadians = glm::radians(0.2f);
+    constexpr float kRotationRadians = glm::radians(1.0f);
+    const float kCosRot = std::cos(kRotationRadians);
+    const float kSinRot = std::sin(kRotationRadians);
+    const glm::mat4 kIdentityMatrix(1);
+
+    double mouse_position_x_begin;
+    double mouse_position_y_begin;
+    double mouse_position_x_end;
+    double mouse_position_y_end;
 
     glm::mat4 projection_matrix = glm::perspective(
-        glm::radians(kCamDegrees),  // Вертикальное поле зрения в радианах. Обычно между
+        glm::radians(
+            kCamDegrees),  // Вертикальное поле зрения в радианах. Обычно между
                            // 90&deg; (очень широкое) и 30&deg; (узкое)
         static_cast<float>(kWidth) /
             static_cast<float>(
@@ -36,10 +51,6 @@ int main(void) {
     );
 
     glm::mat4 model = glm::mat4(1.0f);
-
-    
-
-    
 
     // Initialise GLFW
     if (!glfwInit()) {
@@ -145,25 +156,94 @@ int main(void) {
         LoadShaders(PROJECT_DIR / "shaders/TransformVertexShader.vertexshader",
                     PROJECT_DIR / "shaders/ColorFragmentShader.fragmentshader");
 
-    glm::vec3 camera_position = glm::vec3(4, 3, 3);
+    glm::vec4 camera_position(4, 3, 3, 0);
+    glm::vec4 head(0, 1, 0, 0);
+    glm::vec3 Axis(std::rand(), std::rand(), std::rand());
+    // int count = 0;
 
-    glm::mat3 rotation(std::cos(kRotationRadians), 0, -std::sin(kRotationRadians),
-                        0, 1, 0,
-                        std::sin(kRotationRadians), 0, std::cos(kRotationRadians));
+    glm::mat3 rotation(kCosRot, 0, -kSinRot, 0, 1, 0, kSinRot, 0, kCosRot);
+
+    glfwGetCursorPos(window, &mouse_position_x_end, &mouse_position_y_end);
 
     do {
-        
+        mouse_position_x_begin = mouse_position_x_end;
+        mouse_position_y_begin = mouse_position_y_end;
+        glfwGetCursorPos(window, &mouse_position_x_end, &mouse_position_y_end);
+        if ((mouse_position_x_begin != mouse_position_x_end ||
+             mouse_position_y_begin != mouse_position_y_end) &&
+            glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+            Axis = vectorMultiplication(
+                glm::vec3(camera_position[0], camera_position[1],
+                          camera_position[2]),
+                glm::vec3(head[0], head[1], head[2]));
+
+            glm::vec2 mouse_vector = glm::normalize(
+                glm::vec2(mouse_position_x_end - mouse_position_x_begin,
+                          mouse_position_y_end - mouse_position_y_begin));
+
+            std::cerr << mouse_vector[0] << " : " << std::acos(mouse_vector[0]) << ' '
+                      << mouse_vector[1] << " : " << std::acos(mouse_vector[1]) << '\n';
+
+            glm::vec4 new_Axis =
+                glm::rotate(kIdentityMatrix, std::acos(mouse_vector[1]) * (mouse_vector[0] >= 0 ? 1 : -1),
+                            glm::vec3(camera_position[0], camera_position[1],
+                                      camera_position[2])) *
+                glm::vec4(Axis[0], Axis[1], Axis[2], 0);
+
+            Axis = glm::vec3(new_Axis[0], new_Axis[1], new_Axis[2]);
+            camera_position =
+                glm::rotate(kIdentityMatrix, kRotationRadians, Axis) *
+                camera_position;
+            head = glm::rotate(kIdentityMatrix, kRotationRadians, Axis) * head;
+        }
+        // else {
+        //     if (count == 0) {
+        //         count = std::rand() % 100;
+        //         Axis = glm::vec3(std::rand(), std::rand(), std::rand());
+        //     }
+        //     count--;
+        //     // std::cerr << Axis[0] << ' ' << Axis[1] << ' ' << Axis[2] <<
+        //     '\n';
+
+        //     // glm::mat3 M1(kCosRot + (1 - kCosRot) * Axis[0] * Axis[0],
+        //     //              (1 - kCosRot) * Axis[0] * Axis[1] - kSinRot *
+        //     //              Axis[2], (1 - kCosRot) * Axis[0] * Axis[2] +
+        //     kSinRot
+        //     //              * Axis[1], (1 - kCosRot) * Axis[0] * Axis[1] +
+        //     //              kSinRot * Axis[2], kCosRot + (1 - kCosRot) *
+        //     Axis[1]
+        //     //              * Axis[1], (1 - kCosRot) * Axis[2] * Axis[1] -
+        //     //              kSinRot * Axis[0], (1 - kCosRot) * Axis[2] *
+        //     Axis[0]
+        //     //              - kSinRot * Axis[1], (1 - kCosRot) * Axis[2] *
+        //     //              Axis[1] + kSinRot * Axis[0], kCosRot + (1 -
+        //     kCosRot)
+        //     //              * Axis[2] * Axis[2]);
+        //     // glm::vec3 new_cam_pos = M1 * camera_position;
+        //     // head = glm::normalize(M1 * head);
+        //     // std::cerr << head[0] << ' ' << head[1] << ' ' << head[2] <<
+        //     '\n';
+        //     // std::cerr << camera_position[0] << ' ' << camera_position[1]
+        //     << '
+        //     // '
+        //     //           << camera_position[2] << '\n';
+        //     // camera_position = new_cam_pos;
+
+        //     camera_position =
+        //         glm::rotate(kIdentityMatrix, kRotationRadians, Axis) *
+        //         camera_position;
+        //     head = glm::rotate(kIdentityMatrix, kRotationRadians, Axis) *
+        //     head;
+        // }
         glm::mat4 view = glm::lookAt(
-            camera_position,  // Камера находится в мировых координатах (4,3,3)
+            glm::vec3(camera_position[0], camera_position[1],
+                      camera_position[2]),  // Камера находится в мировых
+                                            // координатах (4,3,3)
             glm::vec3(0, 0, 0),  // И направлена в начало координат
-            glm::vec3(0, 1, 0)  // "Голова" находится сверху
+            glm::vec3(head[0], head[1], head[2])  // "Голова" находится сверху
         );
 
-        camera_position = rotation * camera_position;
-
         glm::mat4 MVP = projection_matrix * view * model;
-
-        
 
         GLuint MatrixID = glGetUniformLocation(programID, "MVP");
 
