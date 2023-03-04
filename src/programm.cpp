@@ -1,6 +1,6 @@
 // Include standard headers
-#include <stdio.h>
-#include <stdlib.h>
+#include <iostream>
+#include <cmath>
 
 // Include GLEW
 #include <GL/glew.h>
@@ -19,10 +19,13 @@
 #include "config.h"
 
 int main(void) {
-    const int kWidth = 800, kHeight = 600;
+    constexpr int kWidth = 800;
+    constexpr int kHeight = 600;
+    constexpr float kCamDegrees = 45;
+    constexpr float kRotationRadians = glm::radians(0.2f);
 
     glm::mat4 projection_matrix = glm::perspective(
-        glm::radians(45.0f),  // Вертикальное поле зрения в радианах. Обычно между
+        glm::radians(kCamDegrees),  // Вертикальное поле зрения в радианах. Обычно между
                            // 90&deg; (очень широкое) и 30&deg; (узкое)
         static_cast<float>(kWidth) /
             static_cast<float>(
@@ -34,13 +37,9 @@ int main(void) {
 
     glm::mat4 model = glm::mat4(1.0f);
 
-    glm::mat4 view = glm::lookAt(
-        glm::vec3(4, 3, 3),  // Камера находится в мировых координатах (4,3,3)
-        glm::vec3(0, 0, 0),  // И направлена в начало координат
-        glm::vec3(0, 1, 0)  // "Голова" находится сверху
-    );
+    
 
-    glm::mat4 MVP = projection_matrix * view * model;
+    
 
     // Initialise GLFW
     if (!glfwInit()) {
@@ -146,9 +145,28 @@ int main(void) {
         LoadShaders(PROJECT_DIR / "shaders/TransformVertexShader.vertexshader",
                     PROJECT_DIR / "shaders/ColorFragmentShader.fragmentshader");
 
-    GLuint MatrixID = glGetUniformLocation(programID, "MVP");
+    glm::vec3 camera_position = glm::vec3(4, 3, 3);
+
+    glm::mat3 rotation(std::cos(kRotationRadians), 0, -std::sin(kRotationRadians),
+                        0, 1, 0,
+                        std::sin(kRotationRadians), 0, std::cos(kRotationRadians));
 
     do {
+        
+        glm::mat4 view = glm::lookAt(
+            camera_position,  // Камера находится в мировых координатах (4,3,3)
+            glm::vec3(0, 0, 0),  // И направлена в начало координат
+            glm::vec3(0, 1, 0)  // "Голова" находится сверху
+        );
+
+        camera_position = rotation * camera_position;
+
+        glm::mat4 MVP = projection_matrix * view * model;
+
+        
+
+        GLuint MatrixID = glGetUniformLocation(programID, "MVP");
+
         glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
 
         // Clear the screen. It's not mentioned before Tutorial 02, but it can
