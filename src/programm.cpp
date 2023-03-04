@@ -65,7 +65,7 @@ int main(void) {
         100.0f  // Дальняя плоскость отсечения.
     );
 
-    glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 model(1.0f);
 
     // Initialise GLFW
     if (!glfwInit()) {
@@ -203,12 +203,12 @@ int main(void) {
 
         }
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-            camera_position -= vec3to4(glm::normalize(side)) / 10.0f;
-            camera_center -= glm::normalize(side) / 10.0f;
-        }
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
             camera_position += vec3to4(glm::normalize(side)) / 10.0f;
             camera_center += glm::normalize(side) / 10.0f;
+        }
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+            camera_position -= vec3to4(glm::normalize(side)) / 10.0f;
+            camera_center -= glm::normalize(side) / 10.0f;
         }
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
             camera_position -= vec3to4(glm::normalize(front)) / 10.0f;
@@ -226,6 +226,7 @@ int main(void) {
             camera_position -= glm::normalize(head) / 10.0f;
             camera_center -= vec4to3(glm::normalize(head)) / 10.0f;
         }
+        // if (glfwGetCursorPos(window, GLFW_MOUSE_))
         glm::mat4 view = glm::lookAt(
             vec4to3(camera_position),  // Камера находится в мировых
                                             // координатах (4,3,3)
@@ -281,6 +282,7 @@ int main(void) {
         // Swap buffers
         glfwSwapBuffers(window);
         glfwPollEvents();
+
 
     }  // Check if the ESC key was pressed or the window was closed
     while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS &&
