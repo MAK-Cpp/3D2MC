@@ -38,14 +38,31 @@ glm::vec3 rotateVec3(const glm::vec3& vec_to_rotate, glm::f32 angle, const glm::
 }
 
 
+std::ostream& operator<< (std::ostream& op, const glm::mat4& mat) {
+    for (int x = 0; x < 4; x++) {
+        for (int y = 0; y < 4; y++) {
+            op << mat[x][y] << ' ';
+        }
+        op << '\n';
+    }
+    return op;
+}
+
 
 int main(void) {
+    // Initialise GLFW
+    if (!glfwInit()) {
+        fprintf(stderr, "Failed to initialize GLFW\n");
+        getchar();
+        return -1;
+    }
+
     constexpr int kWidth = 800;
     constexpr int kHeight = 600;
     constexpr float kCamDegrees = 45;
     constexpr float kRotationRadians = glm::radians(2.5f);
-    const float kCosRot = std::cos(kRotationRadians);
-    const float kSinRot = std::sin(kRotationRadians);
+    // const float kCosRot = std::cos(kRotationRadians);
+    // const float kSinRot = std::sin(kRotationRadians);
     const glm::mat4 kIdentityMatrix(1);
 
     double mouse_position_x_begin;
@@ -65,14 +82,21 @@ int main(void) {
         100.0f  // Дальняя плоскость отсечения.
     );
 
-    glm::mat4 model(1.0f);
+    // glm::mat4 model(1.0f);
 
-    // Initialise GLFW
-    if (!glfwInit()) {
-        fprintf(stderr, "Failed to initialize GLFW\n");
-        getchar();
-        return -1;
-    }
+    glm::mat4 models[2] = {
+        glm::mat4(  1.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 1.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 1.0f, 0.0f, 
+                    2.0f, 2.0f, 2.0f, 1.0f), 
+
+        glm::mat4(  1.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 1.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 1.0f, 0.0f, 
+                    0.0f, 0.0f, 0.0f, 1.0f)
+    };
+
+    
 
     glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -80,9 +104,7 @@ int main(void) {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Open a window and create its OpenGL context
-    GLFWwindow* window;
-    window =
-        glfwCreateWindow(kWidth, kHeight, "Tutorial 001", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(kWidth, kHeight, "Tutorial 001", nullptr, nullptr);
 
     if (window == nullptr) {
         fprintf(
@@ -114,9 +136,11 @@ int main(void) {
     glDepthFunc(GL_LESS);
 
     // Vertex Array Object
-    GLuint VertexArrayID;
-    glGenVertexArrays(1, &VertexArrayID);
-    glBindVertexArray(VertexArrayID);
+    GLuint VertexArrayID[2];
+    glGenVertexArrays(2, VertexArrayID);
+    for (int i = 0; i < 2; i++) {
+        glBindVertexArray(VertexArrayID[i]);
+    }
 
     // Our vertices. Three consecutive floats give a 3D vertex; Three
     // consecutive vertices give a triangle.
@@ -150,20 +174,28 @@ int main(void) {
         0.673f, 0.211f, 0.457f, 0.820f, 0.883f, 0.371f, 0.982f, 0.099f, 0.879f};
 
     // This will identify our vertex buffer
-    GLuint vertexbuffer;
-    // Generate 1 buffer, put the resulting identifier in vertexbuffer
-    glGenBuffers(1, &vertexbuffer);
-    // The following commands will talk about our 'vertexbuffer' buffer
-    glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-    // Give our vertices to OpenGL.
-    glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data),
-                 g_vertex_buffer_data, GL_STATIC_DRAW);
+    GLuint vertexbuffer[2];
+    GLuint colorbuffer[2];
 
-    GLuint colorbuffer;
-    glGenBuffers(1, &colorbuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, colorbuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(g_color_buffer_data),
-                 g_color_buffer_data, GL_STATIC_DRAW);
+    // Generate 1 buffer, put the resulting identifier in vertexbuffer
+    glGenBuffers(2, vertexbuffer);
+    glGenBuffers(2, colorbuffer);
+    
+    for (int i = 0; i < 2; i++) {
+        // The following commands will talk about our 'vertexbuffer' buffer
+        glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer[i]);
+        // Give our vertices to OpenGL.
+        glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data),
+                    g_vertex_buffer_data, GL_STATIC_DRAW);
+
+        glBindBuffer(GL_ARRAY_BUFFER, colorbuffer[i]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(g_color_buffer_data),
+                    g_color_buffer_data, GL_STATIC_DRAW);
+
+    }
+    
+
+    
 
     // Create and compile our GLSL program from the shaders
 
@@ -176,7 +208,10 @@ int main(void) {
     glm::vec4 head(0, 1, 0, 0);
     glm::vec3 Axis(std::rand(), std::rand(), std::rand());
 
-    glm::mat3 rotation(kCosRot, 0, -kSinRot, 0, 1, 0, kSinRot, 0, kCosRot);
+    // Get a handle for our "MVP" uniform
+    // Only during the initialisation
+    GLuint MatrixID = glGetUniformLocation(programID, "MVP");
+
 
     glfwGetCursorPos(window, &mouse_position_x_end, &mouse_position_y_end);
 
@@ -190,6 +225,22 @@ int main(void) {
              mouse_position_y_begin != mouse_position_y_end) &&
             glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
             Axis = vectorMultiplication(vec4to3(camera_position), vec4to3(head));
+
+            glm::vec2 mouse_vector = glm::normalize(
+                glm::vec2(mouse_position_x_end - mouse_position_x_begin,
+                          mouse_position_y_end - mouse_position_y_begin));
+
+            Axis = rotateVec3(Axis, std::acos(mouse_vector[1]) * (mouse_vector[0] >= 0 ? 1 : -1), vec4to3(camera_position));
+            camera_position = glm::rotate(kIdentityMatrix, kRotationRadians, Axis) * camera_position;
+            head = glm::rotate(kIdentityMatrix, kRotationRadians, Axis) * head;
+
+            camera_center = rotateVec3(camera_center, kRotationRadians, Axis);
+
+        }
+        if ((mouse_position_x_begin != mouse_position_x_end ||
+             mouse_position_y_begin != mouse_position_y_end) &&
+            glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+            Axis = vectorMultiplication(-vec4to3(camera_position), vec4to3(head));
 
             glm::vec2 mouse_vector = glm::normalize(
                 glm::vec2(mouse_position_x_end - mouse_position_x_begin,
@@ -234,51 +285,60 @@ int main(void) {
             vec4to3(head)  // "Голова" находится сверху
         );
 
-        glm::mat4 MVP = projection_matrix * view * model;
-
-        GLuint MatrixID = glGetUniformLocation(programID, "MVP");
-
-        glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
-
         // Clear the screen. It's not mentioned before Tutorial 02, but it can
-        // cause flickering, so it's there nonetheless.
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            // cause flickering, so it's there nonetheless.
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
 
-        // Use our shader
-        glUseProgram(programID);
-        // Draw triangle...
+        for (int i = 0; i < 2; i++) {
+            glm::mat4 MVP = projection_matrix * view * models[i];
+            
+            std::cerr << i  << " : \n" << view << '\n';
 
-        // 1st attribute buffer : vertices
-        glEnableVertexAttribArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-        glVertexAttribPointer(0,  // attribute 0. No particular reason for 0,
-                                  // but must match the layout in the shader.
-                              3,         // size
-                              GL_FLOAT,  // type
-                              GL_FALSE,  // normalized?
-                              0,         // stride
-                              (void*)0   // array buffer offset
-        );
+            glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
 
-        // 2nd attribute buffer : colors
-        glEnableVertexAttribArray(1);
-        glBindBuffer(GL_ARRAY_BUFFER, colorbuffer);
-        glVertexAttribPointer(1,  // attribute. No particular reason for 1, but
-                                  // must match the layout in the shader.
-                              3,         // size
-                              GL_FLOAT,  // type
-                              GL_FALSE,  // normalized?
-                              0,         // stride
-                              (void*)0   // array buffer offset
-        );
+            
 
-        // Draw the triangle !
-        glDrawArrays(
-            GL_TRIANGLES, 0,
-            3 * 12);  // Starting from vertex 0; 3 vertices total -> 1 triangle
-        glDisableVertexAttribArray(0);
-        glDisableVertexAttribArray(1);
+            // Use our shader
+            glUseProgram(programID);
+            // Draw triangle...
 
+            // 1st attribute buffer : vertices
+            glEnableVertexAttribArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer[i]);
+            glVertexAttribPointer(0,  // attribute 0. No particular reason for 0,
+                                    // but must match the layout in the shader.
+                                3,         // size
+                                GL_FLOAT,  // type
+                                GL_FALSE,  // normalized?
+                                0,         // stride
+                                (void*)0   // array buffer offset
+            );
+
+            // 2nd attribute buffer : colors
+            glEnableVertexAttribArray(1);
+            glBindBuffer(GL_ARRAY_BUFFER, colorbuffer[i]);
+            glVertexAttribPointer(1,  // attribute. No particular reason for 1, but
+                                    // must match the layout in the shader.
+                                3,         // size
+                                GL_FLOAT,  // type
+                                GL_FALSE,  // normalized?
+                                0,         // stride
+                                (void*)0   // array buffer offset
+            );
+
+            // Draw the triangle !
+            glDrawArrays(
+                GL_TRIANGLES, 0,
+                3 * 12);  // Starting from vertex 0; 3 vertices total -> 1 triangle
+            glDisableVertexAttribArray(0);
+            glDisableVertexAttribArray(1);
+
+        }
+
+        
+
+        
         // Swap buffers
         glfwSwapBuffers(window);
         glfwPollEvents();
