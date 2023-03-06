@@ -8,10 +8,12 @@ target_link_libraries(${PROJECT_NAME} PUBLIC shader
                                             text2D 
                                             texture 
                                             vboindexer
+                                            cube
                     )
 
 target_include_directories(${PROJECT_NAME} PUBLIC
                           ${PROJECT_BINARY_DIR}/lib
+                          ${PROJECT_BINARY_DIR}/lib/figures
                           ${PROJECT_BINARY_DIR}/shaders
                           )
 

@@ -10,3 +10,5 @@ add_library(vboindexer vboindexer.cpp vboindexer.hpp)
 set(PROJECT_DIR ${PROJECT_BINARY_DIR})
 
 configure_file (config.h.in config.h @ONLY)
+
+add_subdirectory(figures)
