@@ -23,9 +23,41 @@
 // Need to get variables from CMake
 #include "config.h"
 
-glm::vec3 vectorMultiplication(const glm::vec3& a, const glm::vec3& b) {
+#define GET_VARIABLE_NAME(var) #var
+
+
+std::ostream& operator<< (std::ostream& op, const glm::mat4& mat) {
+    for (int x = 0; x < 4; x++) {
+        for (int y = 0; y < 4; y++) {
+            op << mat[x][y] << ' ';
+        }
+        op << '\n';
+    }
+    return op;
+}
+
+std::ostream& operator<< (std::ostream& op, const glm::vec3& vec) {
+    op << "{ " << vec.x << " ; " << vec.y << " ; " << vec.z << " }";
+    return op;
+}
+
+
+glm::vec3 vectorMultiply(const glm::vec3& a, const glm::vec3& b) {
     return glm::vec3(a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2],
                      a[0] * b[1] - a[1] * b[0]);
+}
+
+float scalarMultiply(const glm::vec3& a, const glm::vec3& b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+float vectorLength(const glm::vec3& vec) {
+    return sqrt(scalarMultiply(vec, vec));
+}
+
+float vectorsAngle(const glm::vec3& a, const glm::vec3& b) {
+    std::cerr << scalarMultiply(a, b) << " a.length = " << vectorLength(a) << " b.length = " << vectorLength(b) << '\n';
+    return scalarMultiply(a, b) / (vectorLength(a) * vectorLength(b));
 }
 
 glm::vec3 vec4to3 (const glm::vec4& to_3) {
@@ -42,18 +74,7 @@ glm::vec3 rotateVec3(const glm::vec3& vec_to_rotate, glm::f32 angle, const glm::
 }
 
 
-std::ostream& operator<< (std::ostream& op, const glm::mat4& mat) {
-    for (int x = 0; x < 4; x++) {
-        for (int y = 0; y < 4; y++) {
-            op << mat[x][y] << ' ';
-        }
-        op << '\n';
-    }
-    return op;
-}
-
-
-int main(void) {
+int main(int argc, char** argv) {
     // Initialise GLFW
     if (!glfwInit()) {
         fprintf(stderr, "Failed to initialize GLFW\n");
@@ -64,7 +85,7 @@ int main(void) {
     constexpr int kWidth = 1920;
     constexpr int kHeight = 1080;
     constexpr float kCamDegrees = 45;
-    constexpr float kRotationRadians = glm::radians(2.5f);
+    constexpr float kRotationRadians = glm::radians(1.0f);
     // const float kCosRot = std::cos(kRotationRadians);
     // const float kSinRot = std::sin(kRotationRadians);
 
@@ -133,18 +154,43 @@ int main(void) {
         LoadShaders(PROJECT_DIR / "shaders/TransformVertexShader.vertexshader",
                     PROJECT_DIR / "shaders/ColorFragmentShader.fragmentshader");
 
-    glm::vec4 camera_position(4, 3, 3, 1);
+    glm::vec4 camera_position(4, 4, 4, 0);
     glm::vec3 camera_center(0, 0, 0);
+    glm::vec3 front;
+    glm::vec3 side;
+
     glm::vec4 head(0, 1, 0, 0);
-    glm::vec3 Axis(std::rand(), std::rand(), std::rand());
 
+    glm::vec3 Axis;
 
-    constexpr int cnt = 5;
-    std::vector <figure::Cube> blocks(5);
-    for (int i = 0; i < cnt; i++) {
-        blocks[i] = *new figure::Cube(i, i, i);
+    int cnt;
+    std::vector <figure::Cube> blocks;
+
+    if (argc == 1) {
+        std::cout << 
+R"(ERROR: Missing .XYZ file
+usage:
+    3D2MC.exe path\to\file.XYZ)";
+        return -2;
+    } else {
+        std::filesystem::path blocks_input(argv[1]);
+        if (!std::filesystem::exists(blocks_input) ||
+            std::filesystem::is_directory(blocks_input) || 
+            blocks_input.extension() != ".XYZ") {
+                std::cout << "ERROR: WRONG FILE PATH " << blocks_input << '\n';
+                return -2;
+        }
+        std::ifstream file;
+        file.open(blocks_input);
+        file >> cnt;
+        blocks.resize(cnt);
+        for (int i = 0; i < cnt; i++) {
+            float x, y, z;
+            file >> x >> y >> z;
+            blocks[i] = *new figure::Cube(x, y, z);
+        }
+        file.close();
     }
-    
 
     // Get a handle for our "MVP" uniform
     // Only during the initialisation
@@ -153,56 +199,36 @@ int main(void) {
 
     glfwGetCursorPos(window, &mouse_position_x_end, &mouse_position_y_end);
     do {
-        blocks[0].X += 0.01;
-        glm::vec3 front = vec4to3(camera_position) - camera_center;
-        glm::vec3 side = vectorMultiplication(front, head);
+        front = camera_center - vec4to3(camera_position);
+        side = vectorMultiply(front, head);
+
         mouse_position_x_begin = mouse_position_x_end;
         mouse_position_y_begin = mouse_position_y_end;
         glfwGetCursorPos(window, &mouse_position_x_end, &mouse_position_y_end);
         if ((mouse_position_x_begin != mouse_position_x_end ||
-             mouse_position_y_begin != mouse_position_y_end) &&
-            glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-            Axis = vectorMultiplication(vec4to3(camera_position), vec4to3(head));
-            // Axis = side;
-
+             mouse_position_y_begin != mouse_position_y_end) 
+            && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
             glm::vec2 mouse_vector = glm::normalize(
                 glm::vec2(mouse_position_x_end - mouse_position_x_begin,
                           mouse_position_y_end - mouse_position_y_begin));
+            Axis = -rotateVec3(side, (mouse_vector[0] >= 0 ? std::acos(mouse_vector[1]) : -std::acos(mouse_vector[1])), -front);
+            
+            camera_center = rotateVec3(front, kRotationRadians, Axis) + vec4to3(camera_position);
 
-            Axis = rotateVec3(Axis, std::acos(mouse_vector[1]) * (mouse_vector[0] >= 0 ? 1 : -1), vec4to3(camera_position));
-            camera_position = glm::rotate(kIdentityMatrix, kRotationRadians, Axis) * camera_position;
-            head = glm::rotate(kIdentityMatrix, kRotationRadians, Axis) * head;
-
-            camera_center = rotateVec3(camera_center, kRotationRadians, Axis);
-
-        }
-        if ((mouse_position_x_begin != mouse_position_x_end ||
-             mouse_position_y_begin != mouse_position_y_end) &&
-            glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
-            Axis = side;
-
-            glm::vec2 mouse_vector = glm::normalize(
-                glm::vec2(mouse_position_x_end - mouse_position_x_begin,
-                          mouse_position_y_end - mouse_position_y_begin));
-
-            Axis = rotateVec3(Axis, std::acos(mouse_vector[1]) * (mouse_vector[0] >= 0 ? 1 : -1), vec4to3(camera_position));
-            camera_position = glm::rotate(kIdentityMatrix, kRotationRadians, Axis) * camera_position;
-            head = glm::rotate(kIdentityMatrix, kRotationRadians, Axis) * head;
-
+        } 
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+            camera_position += vec3to4(glm::normalize(vectorMultiply(front, vec4to3(glm::normalize(head))))) / 10.0f;
+            camera_center += glm::normalize(vectorMultiply(front, vec4to3(glm::normalize(head)))) / 10.0f;
         }
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-            camera_position += vec3to4(glm::normalize(side)) / 10.0f;
-            camera_center += glm::normalize(side) / 10.0f;
+            camera_position -= vec3to4(glm::normalize(vectorMultiply(front, vec4to3(glm::normalize(head))))) / 10.0f;
+            camera_center -= glm::normalize(vectorMultiply(front, vec4to3(glm::normalize(head)))) / 10.0f;
         }
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-            camera_position -= vec3to4(glm::normalize(side)) / 10.0f;
-            camera_center -= glm::normalize(side) / 10.0f;
-        }
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
             camera_position -= vec3to4(glm::normalize(front)) / 10.0f;
             camera_center -= glm::normalize(front) / 10.0f;
         }
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
             camera_position += vec3to4(glm::normalize(front)) / 10.0f;
             camera_center += glm::normalize(front) / 10.0f;
         }
@@ -221,9 +247,10 @@ int main(void) {
             vec4to3(head)  // "Голова" находится сверху
         );
 
+
         // Clear the screen. It's not mentioned before Tutorial 02, but it can
-            // cause flickering, so it's there nonetheless.
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // cause flickering, so it's there nonetheless.
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
 
         for (int i = 0; i < cnt; i++) {

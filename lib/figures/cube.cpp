@@ -1,7 +1,6 @@
 #include "cube.h"
 
 
-
 figure::Cube::Cube(const float x, const float y, const float z)
     : model_(glm::translate(kIdentityMatrix, glm::vec3(x, y, z))) 
     , X(model_[3][0])

@@ -110,9 +110,13 @@ public:
 
 
     void Draw() const;
+
 };
 
+
+
 } // end figure namespace
+
 
 
 
